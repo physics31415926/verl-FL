@@ -16,8 +16,12 @@ layer in :mod:`verl.plugin.platform`.
 """
 
 import logging
+import os
+import platform
+import subprocess
 
 import torch
+from packaging import version
 
 from verl.plugin.platform import get_platform
 
@@ -29,12 +33,26 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
-def is_torch_npu_available() -> bool:
-    """Check if Ascend NPU is available for PyTorch operations."""
+def is_torch_npu_available(check_device=True) -> bool:
+    """Check if Ascend NPU is available for PyTorch operations.
+
+    Attempts to detect NPU availability by checking for the torch.npu module
+    and its is_available() function.
+
+    Args:
+        check_device : only check torch_npu package or strictly check if NPU device is available
+
+    Returns:
+        bool: True if NPU is available, False otherwise.
+    """
     try:
-        if hasattr(torch, "npu") and callable(getattr(torch.npu, "is_available", None)):
+        if not hasattr(torch, "npu"):
+            return False
+
+        if check_device:
             return torch.npu.is_available()
-        return False
+        else:
+            return True
     except ImportError:
         return False
 
@@ -46,6 +64,14 @@ is_npu_available = is_torch_npu_available()
 # ---------------------------------------------------------------------------
 # Device info helpers
 # ---------------------------------------------------------------------------
+
+
+def get_resource_name() -> str:
+    """Function that return ray resource name based on the device type.
+    Returns:
+        ray resource name string, either "GPU" or "NPU".
+    """
+    return "GPU" if is_cuda_available else "NPU"
 
 
 def get_visible_devices_keyword() -> str:
@@ -94,6 +120,21 @@ def get_nccl_backend() -> str:
 
 
 # ---------------------------------------------------------------------------
+# Random seed
+# ---------------------------------------------------------------------------
+
+
+def manual_seed(seed: int) -> None:
+    """Set the seed for the current accelerator device."""
+    _get_platform_manager().manual_seed(seed)
+
+
+def manual_seed_all(seed: int) -> None:
+    """Set the seed for all accelerator devices."""
+    _get_platform_manager().manual_seed_all(seed)
+
+
+# ---------------------------------------------------------------------------
 # Memory / allocator
 # ---------------------------------------------------------------------------
 
@@ -138,42 +179,109 @@ def auto_set_device(config) -> None:
 def get_device_capability(device_id: int = 0) -> tuple[int | None, int | None]:
     """Get the compute capability of the current accelerator device.
 
-    Args:
-        device_id: The device index to query. Defaults to 0.
-
     Returns:
-        tuple: (major, minor) or (None, None) if not applicable.
+        tuple: (major, minor) version numbers, or (None, None) if not applicable.
     """
     return get_platform().get_device_capability(device_id)
 
 
-def is_device_available() -> bool:
-    """Check if any accelerator device is available.
+# ---------------------------------------------------------------------------
+# NPU version / IPC support (from upstream v0.7.1)
+# ---------------------------------------------------------------------------
+
+
+def get_npu_versions() -> tuple:
+    """Get the NPU software version and CANN toolkit version.
 
     Returns:
-        bool: True if any accelerator is available.
+        tuple: (software_version, cann_version) strings.
+
+    Raises:
+        RuntimeError: If npu-smi command fails or versions cannot be determined.
     """
-    return get_platform().is_available()
+    system = platform.system()
+    if system == "Linux":
+        result = subprocess.run(["npu-smi", "info"], capture_output=True, text=True, check=True)
+        output = result.stdout
+
+        software_version = None
+        for line in output.split("\n"):
+            if "Software Version" in line:
+                software_version = line.split(":")[-1].strip()
+                break
+
+        if software_version is None:
+            raise RuntimeError("Could not find Software Version in npu-smi output")
+
+        cann_path = os.environ.get("ASCEND_TOOLKIT_HOME", "/usr/local/Ascend/ascend-toolkit/latest")
+        version_file = os.path.join(cann_path, "version.cfg")
+
+        if not os.path.exists(version_file):
+            raise RuntimeError(f"CANN version file not found at {version_file}")
+
+        with open(version_file) as f:
+            for line in f:
+                if "CANN_VERSION" in line:
+                    cann_version = line.split("=")[-1].strip()
+                    return software_version, cann_version
+
+        raise RuntimeError("Could not find CANN_VERSION in version.cfg")
+    else:
+        raise RuntimeError(f"Unsupported platform: {system}")
 
 
-# ---------------------------------------------------------------------------
-# RNG helpers
-# ---------------------------------------------------------------------------
+def check_ipc_version_support(software_version: str, cann_version: str) -> bool:
+    """Check if the given software and CANN versions support IPC.
 
-
-def manual_seed(seed: int) -> None:
-    """Set the seed for the current accelerator device.
+    IPC is supported when:
+    - Software version >= 25.3.RC1 AND CANN version >= 8.3.RC1
 
     Args:
-        seed: The desired seed.
+        software_version: The NPU software version string (e.g., "25.3.RC1")
+        cann_version: The CANN toolkit version string (e.g., "8.3.RC1")
+
+    Returns:
+        bool: True if IPC is supported, False otherwise.
     """
-    get_platform().manual_seed(seed)
+    # Normalize version strings for comparison
+    software_base = software_version.lower().replace("rc", ".rc")
+    cann_base = cann_version.lower().replace("rc", ".rc")
+
+    if version.parse(software_base) >= version.parse("25.3.rc1"):
+        if version.parse(cann_base) >= version.parse("8.3.rc1"):
+            return True
+        else:
+            logger.info(f"CANN version {cann_version} is below 8.3.RC1")
+    else:
+        logger.info(f"Software version {software_version} is below 25.3.rc1")
+
+    return False
 
 
-def manual_seed_all(seed: int) -> None:
-    """Set the seed for all accelerator devices.
+def is_support_ipc() -> bool:
+    """Check if the device supports IPC (Inter-Process Communication).
 
-    Args:
-        seed: The desired seed.
+    For GPU devices, always returns True.
+    For NPU devices, checks the software version and CANN toolkit version
+    to determine if IPC is supported.
+
+    Returns:
+        bool: True if IPC is supported, False otherwise.
     """
-    get_platform().manual_seed_all(seed)
+    # If CUDA is available, it's a GPU device
+    if is_cuda_available:
+        return True
+
+    # For NPU devices, check the software version and CANN toolkit version
+    if is_npu_available:
+        try:
+            software_version, cann_version = get_npu_versions()
+            return check_ipc_version_support(software_version, cann_version)
+
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError(f"Failed to execute npu-smi command: {e}") from e
+        except Exception as e:
+            raise RuntimeError(f"Error checking IPC support: {e}") from e
+
+    # For other devices (CPU), return False
+    return False
