@@ -120,6 +120,21 @@ def get_nccl_backend() -> str:
 
 
 # ---------------------------------------------------------------------------
+# Random seed
+# ---------------------------------------------------------------------------
+
+
+def manual_seed(seed: int) -> None:
+    """Set the seed for the current accelerator device."""
+    _get_platform_manager().manual_seed(seed)
+
+
+def manual_seed_all(seed: int) -> None:
+    """Set the seed for all accelerator devices."""
+    _get_platform_manager().manual_seed_all(seed)
+
+
+# ---------------------------------------------------------------------------
 # Memory / allocator
 # ---------------------------------------------------------------------------
 
