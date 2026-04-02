@@ -204,7 +204,7 @@ def get_npu_versions() -> tuple:
         if not os.path.exists(version_file):
             raise RuntimeError(f"CANN version file not found at {version_file}")
 
-        with open(version_file, "r") as f:
+        with open(version_file) as f:
             for line in f:
                 if "CANN_VERSION" in line:
                     cann_version = line.split("=")[-1].strip()
