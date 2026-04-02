@@ -127,16 +127,7 @@ class NsightSystemsProfiler(DistProfiler):
             config = ProfilerConfig(ranks=[])
         if not tool_config:
             assert not config.enable, "tool_config must be provided when profiler is enabled"
-        self.enable = config.enable
-        if not config.enable:
-            return
-        self.this_step: bool = False
         self.discrete: bool = tool_config.discrete
-        self.this_rank: bool = False
-        if config.all_ranks:
-            self.this_rank = True
-        elif config.ranks:
-            self.this_rank = rank in config.ranks
 
     def start(self, **kwargs):
         if self.enable and self.this_rank:
@@ -177,9 +168,6 @@ class NsightSystemsProfiler(DistProfiler):
         def decorator(func):
             @functools.wraps(func)
             def wrapper(*args, **kwargs_inner):
-                if not self.enable:
-                    return func(*args, **kwargs_inner)
-
                 profile_name = message or func.__name__
 
                 if self.this_step:
