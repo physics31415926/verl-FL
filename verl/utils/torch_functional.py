@@ -34,7 +34,7 @@ try:
     from flash_attn.ops.triton.cross_entropy import cross_entropy_loss
 
     FLAH_ATTN_CROSS_ENTROPY_LOSS_AVAILABLE = True
-except ImportError:
+except (ImportError, AttributeError):
     FLAH_ATTN_CROSS_ENTROPY_LOSS_AVAILABLE = False
 
 
@@ -42,7 +42,7 @@ try:
     import torch_npu
 
     NPU_CROSS_ENTROPY_LOSS_AVAILABLE = hasattr(torch_npu, "npu_cross_entropy_loss")
-except ImportError:
+except (ImportError, AttributeError):
     NPU_CROSS_ENTROPY_LOSS_AVAILABLE = False
 
 
