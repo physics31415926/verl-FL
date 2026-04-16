@@ -20,7 +20,7 @@ _current_platform: PlatformBase | None = None
 
 # Built-in platform names that are auto-detected.  Third-party backends can
 # be added via ``set_platform()`` without modifying this list.
-_BUILTIN_PLATFORMS = ("cuda", "npu", "cpu")
+_BUILTIN_PLATFORMS = ("cuda", "npu", "musa", "cpu")
 
 
 def _detect_platform_name() -> str:
@@ -58,7 +58,23 @@ def _detect_platform_name() -> str:
     except (ImportError, RuntimeError):
         pass
 
-    # 4. Fallback – CPU
+    # 4. Auto-detect Moore Threads MUSA
+    try:
+        import sys
+
+        import torch
+
+        if (
+            "torch_musa" in sys.modules
+            and hasattr(torch, "musa")
+            and callable(getattr(torch.musa, "is_available", None))
+            and torch.musa.is_available()
+        ):
+            return "musa"
+    except (ImportError, RuntimeError, AttributeError):
+        pass
+
+    # 5. Fallback – CPU
     return "cpu"
 
 
@@ -81,6 +97,17 @@ def _create_platform(name: str) -> PlatformBase:
         platform = PlatformNPU()
         if not platform.is_available():
             logger.warning("NPU platform specified but not available. Falling back to CPU.")
+            from .platform_cpu import PlatformCPU
+
+            return PlatformCPU()
+        return platform
+
+    if name == "musa":
+        from .platform_musa import PlatformMUSA
+
+        platform = PlatformMUSA()
+        if not platform.is_available():
+            logger.warning("MUSA platform specified but not available. Falling back to CPU.")
             from .platform_cpu import PlatformCPU
 
             return PlatformCPU()
