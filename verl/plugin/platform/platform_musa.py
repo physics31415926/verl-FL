@@ -129,3 +129,14 @@ class PlatformMUSA(PlatformBase):
 
     def cudart(self) -> Any:
         return None
+
+    # ------------------------------------------------------------------
+    # Lifecycle
+    # ------------------------------------------------------------------
+
+    def ensure_initialized(self) -> None:
+        """Eagerly load ``torch_musa`` so that downstream libraries
+        (``transformers``, ``accelerate``, ``flash_attn``, …) see a fully
+        initialised MUSA runtime when they are imported later."""
+        _get_musa_module()
+        logger.debug("torch_musa initialised by PlatformMUSA.ensure_initialized()")

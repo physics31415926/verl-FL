@@ -106,3 +106,18 @@ class PlatformNPU(PlatformBase):
 
     def cudart(self) -> Any:
         return None
+
+    # ------------------------------------------------------------------
+    # Lifecycle
+    # ------------------------------------------------------------------
+
+    def ensure_initialized(self) -> None:
+        """Eagerly load ``torch_npu`` so that downstream libraries
+        (``transformers``, ``accelerate``, …) see a fully initialised
+        NPU runtime when they are imported later."""
+        try:
+            import torch_npu  # noqa: F401
+
+            logger.debug("torch_npu initialised by PlatformNPU.ensure_initialized()")
+        except ImportError:
+            pass

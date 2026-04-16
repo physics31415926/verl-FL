@@ -60,16 +60,10 @@ def _detect_platform_name() -> str:
 
     # 4. Auto-detect Moore Threads MUSA
     try:
-        import sys
-
         import torch
+        import torch_musa  # noqa: F401 – registers torch.musa
 
-        if (
-            "torch_musa" in sys.modules
-            and hasattr(torch, "musa")
-            and callable(getattr(torch.musa, "is_available", None))
-            and torch.musa.is_available()
-        ):
+        if hasattr(torch, "musa") and callable(getattr(torch.musa, "is_available", None)) and torch.musa.is_available():
             return "musa"
     except (ImportError, RuntimeError, AttributeError):
         pass
@@ -130,6 +124,7 @@ def get_platform() -> PlatformBase:
     if _current_platform is None:
         name = _detect_platform_name()
         _current_platform = _create_platform(name)
+        _current_platform.ensure_initialized()
         logger.info("verl platform initialised: %s", _current_platform.device_name)
     return _current_platform
 
