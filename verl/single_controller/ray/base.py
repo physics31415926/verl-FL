@@ -316,7 +316,7 @@ class RayClassWithInitArgs(ClassWithInitArgs):
         }
         options.update(self._options)
 
-        if use_gpu and device_name == "cuda":
+        if use_gpu and device_name in ("cuda", "musa"):
             options["num_gpus"] = num_gpus
         if use_gpu and device_name == "npu":
             options["resources"] = {"NPU": num_gpus}
