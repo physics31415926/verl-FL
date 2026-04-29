@@ -323,12 +323,38 @@ class FLAGCXLibrary:
 # =============================================================================
 
 
-def _current_stream():
-    """Get the current device stream in a device-agnostic way."""
-    from verl.utils.device import get_torch_device
+def _current_stream_for_device(device: torch.device):
+    """Get the current stream for the given device type."""
+    if device.type == "musa":
+        return torch.musa.current_stream(device)
+    elif device.type == "cuda":
+        return torch.cuda.current_stream(device)
+    else:
+        raise RuntimeError(f"Unsupported device type: {device.type}")
 
-    device_mod = get_torch_device()
-    return device_mod.current_stream()
+
+def _detect_local_device_type() -> str:
+    """Detect the actual accelerator type available on this node.
+
+    In a heterogeneous cluster (e.g. CUDA on node A, MUSA on node B) the
+    global platform singleton from ``verl.plugin.platform`` may not reflect
+    the hardware of the *current* node.  This function probes the local
+    runtime directly so that device resolution is always correct.
+    """
+    try:
+        if hasattr(torch, "musa") and callable(getattr(torch.musa, "is_available", None)):
+            if torch.musa.is_available() and torch.musa.device_count() > 0:
+                return "musa"
+    except Exception:
+        pass
+
+    if torch.cuda.is_available() and torch.cuda.device_count() > 0:
+        return "cuda"
+
+    raise RuntimeError(
+        "No CUDA or MUSA device found on this node. "
+        "FlagCX communicator requires a GPU device."
+    )
 
 
 class PyFlagcxCommunicator:
@@ -374,15 +400,16 @@ class PyFlagcxCommunicator:
         self.unique_id = group.broadcast_obj(self.unique_id, src=0)
         print(f"[PyFlagcxCommunicator] rank={self.rank} unique_id received")
 
-        # Resolve device
+        # Resolve device — detect actual hardware on this node rather than
+        # relying on the global platform singleton, which may not match in a
+        # heterogeneous (CUDA + MUSA) cluster.
         if isinstance(device, int):
-            from verl.utils.device import get_device_name
-
-            device_name = get_device_name()
+            device_name = _detect_local_device_type()
             device = torch.device(f"{device_name}:{device}")
         elif isinstance(device, str):
             device = torch.device(device)
         self.device = device
+        print(f"[PyFlagcxCommunicator] rank={self.rank} resolved device={self.device}")
 
         # Initialize communicator under the correct device context
         if self.device.type == "musa":
@@ -401,7 +428,7 @@ class PyFlagcxCommunicator:
             # Warmup broadcast
             data = torch.zeros(1, device=self.device)
             self.broadcast(data, src=0)
-            _current_stream().synchronize()
+            _current_stream_for_device(self.device).synchronize()
             del data
             print(f"[PyFlagcxCommunicator] rank={self.rank} warmup broadcast done")
 
@@ -417,7 +444,7 @@ class PyFlagcxCommunicator:
             f"FlagCX communicator bound to {self.device}, but tensor is on {tensor.device}"
         )
         if stream is None:
-            stream = _current_stream()
+            stream = _current_stream_for_device(self.device)
         if src == self.rank:
             sendbuff = buffer_type(tensor.data_ptr())
             recvbuff = buffer_type(tensor.data_ptr())

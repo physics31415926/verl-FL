@@ -96,7 +96,7 @@ class DetachSync(AsyncActorRolloutRefWorker):
                     tensor.copy_(origin_data)
 
             if hasattr(self, "_weight_sync_group"):
-                self._weight_sync_group.broadcast(tensor, src=0, stream=get_torch_device().current_stream())
+                self._weight_sync_group.broadcast(tensor, src=0)
             else:
                 collective.broadcast(tensor, src_rank=0, group_name="actor_rollout")
 
