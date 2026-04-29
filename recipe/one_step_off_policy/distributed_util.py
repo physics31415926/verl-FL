@@ -29,9 +29,11 @@ def vllm_stateless_init_process_group(master_address, master_port, rank, world_s
     pg = StatelessProcessGroup.create(host=master_address, port=master_port, rank=rank, world_size=world_size)
 
     comm_backend = get_nccl_backend()
+    print(f"[WEIGHT-SYNC] comm_backend={comm_backend}, rank={rank}, world_size={world_size}, device={device}")
     if comm_backend == "flagcx":
         from recipe.one_step_off_policy.flagcx_communicator import PyFlagcxCommunicator
 
+        print(f"[WEIGHT-SYNC] Using PyFlagcxCommunicator for rank={rank}")
         return PyFlagcxCommunicator(pg, device=device)
     elif is_npu_available:
         from vllm_ascend.distributed.device_communicators.pyhccl import (

@@ -346,7 +346,9 @@ class PyFlagcxCommunicator:
 
         # Load FlagCX library
         try:
+            print(f"[PyFlagcxCommunicator] rank={self.rank} loading library_path={library_path}")
             self.flagcx = FLAGCXLibrary(library_path)
+            print(f"[PyFlagcxCommunicator] rank={self.rank} library loaded successfully")
         except Exception as e:
             logger.error(f"Failed to load FlagCX library: {e}")
             self.disabled = True
@@ -355,9 +357,12 @@ class PyFlagcxCommunicator:
         # Generate and distribute unique_id
         if self.rank == 0:
             self.unique_id = self.flagcx.flagcxGetUniqueId().contents
+            print(f"[PyFlagcxCommunicator] rank=0 generated unique_id")
         else:
             self.unique_id = flagcxUniqueId()
+        print(f"[PyFlagcxCommunicator] rank={self.rank} broadcasting unique_id...")
         self.unique_id = group.broadcast_obj(self.unique_id, src=0)
+        print(f"[PyFlagcxCommunicator] rank={self.rank} unique_id received")
 
         # Resolve device
         if isinstance(device, int):
@@ -378,16 +383,19 @@ class PyFlagcxCommunicator:
             raise RuntimeError(f"Unsupported device type for FlagCX: {self.device.type}")
 
         with device_ctx:
+            print(f"[PyFlagcxCommunicator] rank={self.rank} calling flagcxCommInitRank(world_size={self.world_size})...")
             self.comm = self.flagcx.flagcxCommInitRank(
                 self.world_size, ctypes.byref(self.unique_id), self.rank
             )
+            print(f"[PyFlagcxCommunicator] rank={self.rank} CommInitRank done, running warmup broadcast...")
             # Warmup broadcast
             data = torch.zeros(1, device=self.device)
             self.broadcast(data, src=0)
             _current_stream().synchronize()
             del data
+            print(f"[PyFlagcxCommunicator] rank={self.rank} warmup broadcast done")
 
-        logger.info(
+        print(
             f"[PyFlagcxCommunicator] rank={self.rank}, world_size={self.world_size}, "
             f"device={self.device} initialized successfully"
         )
