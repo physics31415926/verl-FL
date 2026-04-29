@@ -117,6 +117,12 @@ class PyFlagcxCommunicator:
             self.comm = self.flagcx.flagcxCommInitRank(
                 self.world_size, ctypes.byref(self.unique_id), self.rank
             )
+            # flagcxCommInitRank internally calls setDevice which may corrupt
+            # the CUDA/MUSA runtime state. Re-set explicitly.
+            if self.device.type == "cuda":
+                torch.cuda.set_device(self.device)
+            elif self.device.type == "musa":
+                torch.musa.set_device(self.device)
             # Warmup
             data = torch.zeros(1, device=self.device)
             self.broadcast(data, src=0)
