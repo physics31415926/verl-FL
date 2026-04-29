@@ -390,6 +390,7 @@ class PyFlagcxCommunicator:
         self.rank = group.rank
         self.world_size = group.world_size
         self.group = group
+        print(f"[PyFlagcxCommunicator] rank={self.rank} __init__ called with device={device} (type={type(device).__name__})")
 
         if self.world_size == 1:
             self.disabled = True
@@ -425,7 +426,24 @@ class PyFlagcxCommunicator:
         elif isinstance(device, str):
             device = torch.device(device)
         self.device = device
-        print(f"[PyFlagcxCommunicator] rank={self.rank} resolved device={self.device}")
+        print(f"[PyFlagcxCommunicator] rank={self.rank} resolved device={self.device} "
+              f"(type={self.device.type}, index={self.device.index})")
+
+        # Validate device index is in range
+        if self.device.type == "cuda":
+            dev_count = torch.cuda.device_count()
+            print(f"[PyFlagcxCommunicator] rank={self.rank} CUDA device_count={dev_count}")
+            if self.device.index is not None and self.device.index >= dev_count:
+                print(f"[PyFlagcxCommunicator] rank={self.rank} WARNING: device index "
+                      f"{self.device.index} >= device_count {dev_count}, resetting to cuda:0")
+                self.device = torch.device("cuda:0")
+        elif self.device.type == "musa":
+            dev_count = torch.musa.device_count()
+            print(f"[PyFlagcxCommunicator] rank={self.rank} MUSA device_count={dev_count}")
+            if self.device.index is not None and self.device.index >= dev_count:
+                print(f"[PyFlagcxCommunicator] rank={self.rank} WARNING: device index "
+                      f"{self.device.index} >= device_count {dev_count}, resetting to musa:0")
+                self.device = torch.device("musa:0")
 
         # Initialize communicator under the correct device context
         if self.device.type == "musa":
