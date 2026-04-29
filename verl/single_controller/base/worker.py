@@ -25,6 +25,7 @@ import ray
 from verl.utils.device import (
     get_torch_device,
     get_visible_devices_keyword,
+    is_cuda_available,
     is_musa_available,
     is_npu_available,
 )
