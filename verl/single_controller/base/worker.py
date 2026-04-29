@@ -23,7 +23,6 @@ from dataclasses import dataclass
 import ray
 
 from verl.utils.device import (
-    get_nccl_backend,
     get_torch_device,
     get_visible_devices_keyword,
     is_musa_available,
@@ -280,16 +279,6 @@ class Worker(WorkerHelper):
             cuda_val = os.environ.pop("ROCR_VISIBLE_DEVICES")
             os.environ["CUDA_VISIBLE_DEVICES"] = cuda_val
             rocr_val = None
-
-        # FlagCX internally uses physical device indices and calls setDevice
-        # with those indices, which conflicts with CUDA_VISIBLE_DEVICES
-        # remapping.  When FlagCX is the backend, remove the visibility
-        # restriction and bind via set_device() — same strategy as MUSA.
-        if not is_musa_available and cuda_val and get_nccl_backend() == "flagcx":
-            cuda_device_index = int(cuda_val)
-            os.environ.pop("CUDA_VISIBLE_DEVICES", None)
-            os.environ["LOCAL_RANK"] = str(cuda_device_index)
-            get_torch_device().set_device(cuda_device_index)
 
         # Ray sets CUDA_VISIBLE_DEVICES for GPU resource isolation, but torch_musa
         # ignores it (reads MUSA_VISIBLE_DEVICES instead).  Unlike CUDA/NCCL,
