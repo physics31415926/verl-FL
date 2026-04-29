@@ -297,9 +297,19 @@ class FLAGCXLibrary:
     # Stream helpers via device handler
     def adaptor_stream_copy(self, torch_stream) -> flagcxStream_t:
         new_stream = flagcxStream_t()
+        # torch.musa.Stream uses .musa_stream, torch.cuda.Stream uses .cuda_stream
+        if hasattr(torch_stream, "cuda_stream"):
+            raw_stream = torch_stream.cuda_stream
+        elif hasattr(torch_stream, "musa_stream"):
+            raw_stream = torch_stream.musa_stream
+        else:
+            raise AttributeError(
+                f"Cannot get raw stream pointer from {type(torch_stream)}: "
+                f"no cuda_stream or musa_stream attribute"
+            )
         self.FLAGCX_CHECK(
             self.handler.contents.devHandle.contents.streamCopy(
-                ctypes.byref(new_stream), ctypes.c_void_p(torch_stream.cuda_stream)
+                ctypes.byref(new_stream), ctypes.c_void_p(raw_stream)
             )
         )
         return new_stream
