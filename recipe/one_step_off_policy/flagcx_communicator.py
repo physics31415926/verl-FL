@@ -1,4 +1,4 @@
-# Copyright (c) 2025 BAAI. All rights reserved.
+# Copyright (c) 2026 BAAI. All rights reserved.
 # Adapted from vllm-plugin-FL/vllm_fl/distributed/device_communicators/flagcx.py
 
 """
@@ -12,7 +12,7 @@ import ctypes
 import logging
 import os
 import sys
-from typing import Optional, Union
+from typing import Optional
 
 import torch
 
@@ -74,7 +74,7 @@ class PyFlagcxCommunicator:
     def __init__(
         self,
         group,  # StatelessProcessGroup
-        device: Union[str, int, torch.device],
+        device: str | int | torch.device,
         library_path: Optional[str] = None,
     ):
         self.rank = group.rank
@@ -114,9 +114,7 @@ class PyFlagcxCommunicator:
             device_ctx = torch.cuda.device(self.device)
 
         with device_ctx:
-            self.comm = self.flagcx.flagcxCommInitRank(
-                self.world_size, ctypes.byref(self.unique_id), self.rank
-            )
+            self.comm = self.flagcx.flagcxCommInitRank(self.world_size, ctypes.byref(self.unique_id), self.rank)
             # flagcxCommInitRank internally calls setDevice which may corrupt
             # the CUDA/MUSA runtime state. Re-set explicitly.
             if self.device.type == "cuda":
@@ -130,8 +128,7 @@ class PyFlagcxCommunicator:
             del data
 
         logger.info(
-            f"PyFlagcxCommunicator rank={self.rank}, world_size={self.world_size}, "
-            f"device={self.device} initialized"
+            f"PyFlagcxCommunicator rank={self.rank}, world_size={self.world_size}, device={self.device} initialized"
         )
 
     def _stream_copy(self, torch_stream):
@@ -142,12 +139,8 @@ class PyFlagcxCommunicator:
         elif hasattr(torch_stream, "musa_stream"):
             raw = torch_stream.musa_stream
         else:
-            raise AttributeError(
-                f"Cannot get raw stream pointer from {type(torch_stream)}"
-            )
-        self.flagcx.handler.contents.devHandle.contents.streamCopy(
-            ctypes.byref(new_stream), ctypes.c_void_p(raw)
-        )
+            raise AttributeError(f"Cannot get raw stream pointer from {type(torch_stream)}")
+        self.flagcx.handler.contents.devHandle.contents.streamCopy(ctypes.byref(new_stream), ctypes.c_void_p(raw))
         return new_stream
 
     def broadcast(self, tensor: torch.Tensor, src: int = 0, stream=None) -> None:
