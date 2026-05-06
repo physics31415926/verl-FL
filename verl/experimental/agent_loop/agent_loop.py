@@ -729,6 +729,15 @@ class AgentLoopWorkerBase:
         optional_outputs = {}
         if inputs[0].response_logprobs is not None:
             optional_outputs["rollout_log_probs"] = torch.cat([input.response_logprobs for input in inputs], dim=0)
+            # DEBUG: check for nan/inf in assembled rollout_log_probs
+            rlp = optional_outputs["rollout_log_probs"]
+            nan_count = rlp.isnan().sum().item()
+            inf_count = rlp.isinf().sum().item()
+            if nan_count > 0 or inf_count > 0:
+                logger.warning(
+                    f"[agent_loop._postprocess] rollout_log_probs has nan={nan_count}, inf={inf_count} "
+                    f"out of {rlp.numel()} elements. shape={rlp.shape}"
+                )
         if inputs[0].routed_experts is not None:
             optional_outputs["routed_experts"] = torch.cat([input.routed_experts for input in inputs], dim=0)
 
