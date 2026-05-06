@@ -13,33 +13,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from verl.utils.device import get_nccl_backend, is_npu_available
-
-
-def vllm_stateless_init_process_group(master_address, master_port, rank, world_size, device):
-    """
-    vLLM provides `StatelessProcessGroup` to create a process group
-    without considering the global process group in torch.distributed.
-    It is recommended to create `StatelessProcessGroup`, and then initialize
-    the data-plane communication (NCCL/FlagCX/HCCL) between external
-    (train processes) and vLLM workers.
-    """
-    from vllm.distributed.utils import StatelessProcessGroup
-
-    pg = StatelessProcessGroup.create(host=master_address, port=master_port, rank=rank, world_size=world_size)
-
-    comm_backend = get_nccl_backend()
-    print(f"[WEIGHT-SYNC] comm_backend={comm_backend}, rank={rank}, world_size={world_size}, device={device}")
-    if comm_backend == "flagcx":
-        from recipe.one_step_off_policy.flagcx_communicator import PyFlagcxCommunicator
-
-        print(f"[WEIGHT-SYNC] Using PyFlagcxCommunicator for rank={rank}")
-        return PyFlagcxCommunicator(pg, device=device)
-    elif is_npu_available:
-        from vllm_ascend.distributed.device_communicators.pyhccl import (
-            PyHcclCommunicator as PyNcclCommunicator,
-        )
-    else:
-        from vllm.distributed.device_communicators.pynccl import PyNcclCommunicator
-
-    return PyNcclCommunicator(pg, device=device)
+from verl.utils.distributed import vllm_stateless_init_process_group  # noqa: F401

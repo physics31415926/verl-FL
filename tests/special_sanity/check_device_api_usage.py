@@ -50,16 +50,16 @@ CUDA_KEYWORD_CHECK_WHITELIST = [
     "verl/workers/engine/veomni/transformer_impl.py",  # appear in default device_name
     "verl/workers/rollout/vllm_rollout/vllm_async_server.py",  # appear in config.cudagraph_capture_sizes
     "verl/workers/rollout/sglang_rollout/async_sglang_server.py",  # manually set CUDA_VISIBLE_DEVICES
-    "recipe/one_step_off_policy/flagcx_communicator.py",  # direct CUDA/MUSA device context for FlagCX
+    "verl/utils/flagcx_communicator.py",  # FlagCX communicator needs direct CUDA/MUSA device context
 ]
 
 # directory or file path must contain keyword "nccl"
 NCCL_KEYWORD_CHECK_WHITELIST = [
     "verl/utils/device.py",
+    "verl/utils/distributed.py",  # vllm_stateless_init_process_group imports PyNcclCommunicator
     "verl/plugin/platform/platform_cuda.py",  # CUDA platform returns "nccl" backend
     "verl/third_party/sglang/parallel_state.py",  # appear in default backend
     "verl/recipe/fully_async_policy/param_sync.py",  # fully_async_policy in default backend
-    "recipe/one_step_off_policy/distributed_util.py",  # backend name comparison for FlagCX routing
 ]
 
 SEARCH_WHITELIST = CUDA_KEYWORD_CHECK_WHITELIST + NCCL_KEYWORD_CHECK_WHITELIST
