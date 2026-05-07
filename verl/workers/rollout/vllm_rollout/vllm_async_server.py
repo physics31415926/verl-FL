@@ -527,16 +527,6 @@ class vLLMHttpServerBase:
         log_probs = None
         if sampling_params.logprobs is not None:
             log_probs = [logprobs[token_ids[i]].logprob for i, logprobs in enumerate(final_res.outputs[0].logprobs)]
-            # DEBUG: check for nan/inf in logprobs returned by vLLM
-            import math
-
-            nan_count = sum(1 for lp in log_probs if math.isnan(lp))
-            inf_count = sum(1 for lp in log_probs if math.isinf(lp))
-            if nan_count > 0 or inf_count > 0:
-                logging.warning(
-                    f"[vllm_async_server] logprobs contain nan={nan_count}, inf={inf_count} "
-                    f"out of {len(log_probs)} tokens. First 10 values: {log_probs[:10]}"
-                )
 
         routed_experts = None
         if self.config.enable_rollout_routing_replay:
