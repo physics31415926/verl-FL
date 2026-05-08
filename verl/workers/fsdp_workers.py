@@ -155,13 +155,21 @@ class ActorRolloutRefWorker(Worker, DistProfilerExtension):
         if not torch.distributed.is_initialized():
             rank = int(os.environ.get("RANK", 0))
             world_size = int(os.environ.get("WORLD_SIZE", 1))
+            backend = get_dist_backend()
+            init_method = os.environ.get("DIST_INIT_METHOD", None)
+            print(f"[DEBUG] Before init_process_group: rank={rank}, world_size={world_size}, backend={backend}, init_method={init_method}")
             torch.distributed.init_process_group(
-                backend=get_dist_backend(),
+                backend=backend,
                 rank=rank,
                 world_size=world_size,
                 timeout=datetime.timedelta(seconds=self.config.get("nccl_timeout", 600)),
-                init_method=os.environ.get("DIST_INIT_METHOD", None),
+                init_method=init_method,
             )
+            print(f"[DEBUG] After init_process_group: is_initialized={torch.distributed.is_initialized()}, backend={torch.distributed.get_backend()}")
+            torch.distributed.barrier()
+            print(f"[DEBUG] After barrier")
+        else:
+            print(f"[DEBUG] torch.distributed already initialized, backend={torch.distributed.get_backend()}")
 
         # build device mesh for FSDP
         world_size = torch.distributed.get_world_size()
