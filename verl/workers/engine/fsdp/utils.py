@@ -11,8 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from verl.utils.device import get_device_name
 from torch.distributed.device_mesh import init_device_mesh
+
+from verl.utils.device import get_device_name
 
 
 def create_device_mesh(world_size, fsdp_size):
