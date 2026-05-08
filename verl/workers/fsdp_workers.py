@@ -167,7 +167,16 @@ class ActorRolloutRefWorker(Worker, DistProfilerExtension):
             )
             print(f"[DEBUG] After init_process_group: is_initialized={torch.distributed.is_initialized()}, backend={torch.distributed.get_backend()}")
             torch.distributed.barrier()
-            print(f"[DEBUG] After barrier")
+            print(f"[DEBUG] After barrier (gloo)")
+            # Warmup FlagCX communicator with a device tensor broadcast
+            from verl.utils.device import get_device_name
+            _dev = get_device_name()
+            if _dev in ("cuda", "musa"):
+                import torch as _torch
+                _warmup = _torch.zeros(1, device=f"{_dev}:{_torch.distributed.get_rank() % 8}")
+                torch.distributed.broadcast(_warmup, src=0)
+                print(f"[DEBUG] After device broadcast warmup on {_dev}")
+                del _warmup
         else:
             print(f"[DEBUG] torch.distributed already initialized, backend={torch.distributed.get_backend()}")
 
