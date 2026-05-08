@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from verl.utils.device import get_device_name
-from verl.utils.distributed import init_device_mesh_hetero
+from torch.distributed.device_mesh import init_device_mesh
 
 
 def create_device_mesh(world_size, fsdp_size):
@@ -28,9 +28,9 @@ def create_device_mesh(world_size, fsdp_size):
     """
     device_name = get_device_name()
     if fsdp_size < 0 or fsdp_size >= world_size:
-        device_mesh = init_device_mesh_hetero(device_name, mesh_shape=(world_size,), mesh_dim_names=["fsdp"])
+        device_mesh = init_device_mesh(device_name, mesh_shape=(world_size,), mesh_dim_names=["fsdp"])
     else:
-        device_mesh = init_device_mesh_hetero(
+        device_mesh = init_device_mesh(
             device_name, mesh_shape=(world_size // fsdp_size, fsdp_size), mesh_dim_names=["ddp", "fsdp"]
         )
     return device_mesh

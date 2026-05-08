@@ -21,7 +21,7 @@ from datetime import timedelta
 import ray
 import torch.distributed
 
-from verl.utils.device import get_dist_backend, get_nccl_backend, get_torch_device, is_npu_available
+from verl.utils.device import get_device_name, get_dist_backend, get_nccl_backend, get_torch_device, is_npu_available
 
 logger = logging.getLogger(__name__)
 
@@ -178,6 +178,10 @@ def vllm_stateless_init_process_group(master_address, master_port, rank, world_s
     if comm_backend == "flagcx":
         from verl.utils.flagcx_communicator import PyFlagcxCommunicator
 
+        # Convert int device to device string (e.g., 0 -> "musa:0" or "cuda:0")
+        if isinstance(device, int):
+            device_name = get_device_name()
+            device = f"{device_name}:{device}"
         return PyFlagcxCommunicator(pg, device=device)
     elif is_npu_available:
         from vllm_ascend.distributed.device_communicators.pyhccl import (
