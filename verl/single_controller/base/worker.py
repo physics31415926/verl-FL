@@ -285,8 +285,17 @@ class Worker(WorkerHelper):
         # MCCL/FlagCX does not work when MUSA_VISIBLE_DEVICES restricts each
         # process to a single device.  Instead, keep all devices visible and
         # use set_device() with the Ray-assigned physical device index.
-        if is_musa_available and cuda_val:
-            musa_device_index = int(cuda_val)
+        if is_musa_available:
+            if cuda_val:
+                musa_device_index = int(cuda_val)
+            else:
+                # Ray may not set CUDA_VISIBLE_DEVICES for MUSA workers.
+                # Fall back to Ray runtime context to get the assigned device.
+                try:
+                    gpu_ids = ray.get_runtime_context().get_accelerator_ids().get("GPU", [])
+                    musa_device_index = int(gpu_ids[0]) if gpu_ids else 0
+                except Exception:
+                    musa_device_index = 0
             os.environ.pop("MUSA_VISIBLE_DEVICES", None)
             os.environ["LOCAL_RANK"] = str(musa_device_index)
             get_torch_device().set_device(musa_device_index)
