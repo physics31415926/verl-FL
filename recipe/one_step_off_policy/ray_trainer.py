@@ -280,7 +280,7 @@ class OneStepOffRayTrainer(RayPPOTrainer):
                 )
             )
         else:
-            # CUDA: use Ray collective group
+            # Create Ray collective group for fallback communication
             collective.create_collective_group(
                 actor_rollout_workers,
                 n_workers,
