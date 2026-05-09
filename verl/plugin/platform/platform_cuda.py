@@ -75,18 +75,9 @@ class PlatformCUDA(PlatformBase):
     # ------------------------------------------------------------------
 
     def communication_backend_name(self) -> str:
-        env = os.getenv("USE_FLAGCX", "").lower()
-        if env in ("1", "true"):
+        if os.getenv("USE_FLAGCX", "").lower() in ("1", "true"):
             return "flagcx"
-        if env in ("0", "false"):
-            return "nccl"
-        # Auto-detect: if flagcx is installed, use it
-        try:
-            import flagcx  # noqa: F401
-
-            return "flagcx"
-        except ImportError:
-            return "nccl"
+        return "nccl"
 
     def visible_devices_envvar(self) -> str:
         return "CUDA_VISIBLE_DEVICES"

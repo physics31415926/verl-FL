@@ -43,7 +43,7 @@ def vllm_stateless_init_process_group(master_address, master_port, rank, world_s
     )
 
     if comm_backend == "flagcx":
-        from verl.utils.flagcx_communicator import PyFlagcxCommunicator
+        from vllm_fl.distributed.device_communicators.flagcx import PyFlagcxCommunicator
 
         # Convert int device to device string (e.g., 0 -> "musa:0" or "cuda:0")
         if isinstance(device, int):
