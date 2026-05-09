@@ -145,6 +145,18 @@ class PlatformMUSA(PlatformBase):
     def ensure_initialized(self) -> None:
         """Eagerly load ``torch_musa`` so that downstream libraries
         (``transformers``, ``accelerate``, ``flash_attn``, …) see a fully
-        initialised MUSA runtime when they are imported later."""
-        _get_musa_module()
+        initialised MUSA runtime when they are imported later.
+
+        Also patches ``torch.musa.Stream`` to expose a ``cuda_stream`` property
+        so that FlagCX's ``adaptor_stream_copy`` (which hardcodes ``cuda_stream``)
+        works transparently on MUSA devices.
+        """
+        musa = _get_musa_module()
+
+        # FlagCX wrapper accesses stream.cuda_stream, but MUSA streams use
+        # musa_stream. Add a compatibility alias.
+        stream_cls = getattr(musa, "Stream", None)
+        if stream_cls is not None and not hasattr(stream_cls, "cuda_stream"):
+            stream_cls.cuda_stream = property(lambda self: self.musa_stream)
+
         logger.debug("torch_musa initialised by PlatformMUSA.ensure_initialized()")
