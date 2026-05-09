@@ -57,7 +57,6 @@ CUDA_KEYWORD_CHECK_WHITELIST = [
 # directory or file path must contain keyword "nccl"
 NCCL_KEYWORD_CHECK_WHITELIST = [
     "verl/utils/device.py",
-    "verl/utils/distributed.py",  # vllm_stateless_init_process_group imports PyNcclCommunicator
     "verl/plugin/platform/platform_cuda.py",  # CUDA platform returns "nccl" backend
     "verl/third_party/sglang/parallel_state.py",  # appear in default backend
     "verl/recipe/fully_async_policy/param_sync.py",  # fully_async_policy in default backend
