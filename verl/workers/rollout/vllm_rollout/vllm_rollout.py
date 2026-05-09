@@ -55,7 +55,7 @@ from packaging import version as vs
 
 from verl import DataProto
 from verl.third_party.vllm import VLLM_SLEEP_LEVEL, get_version
-from verl.utils.device import is_musa_available, is_npu_available
+from verl.utils.device import get_device_name, is_npu_available
 from verl.utils.distributed import initialize_global_process_group_ray
 from verl.utils.ray_utils import ray_noset_visible_devices
 from verl.utils.vllm import TensorLoRARequest, VLLMHijack, is_version_ge
@@ -184,7 +184,7 @@ class vLLMAsyncRollout(BaseRollout):
         device_name = "NPU" if is_npu_available else "GPU"
         if ray_noset_visible_devices():
             local_rank = int(ray.get_runtime_context().get_accelerator_ids()[device_name][0])
-        elif is_musa_available:
+        elif get_device_name() == "musa":
             # MUSA workers see all devices (no MUSA_VISIBLE_DEVICES isolation),
             # so use the LOCAL_RANK set by worker.py (physical device index).
             local_rank = int(os.environ.get("LOCAL_RANK", 0))

@@ -23,9 +23,9 @@ from dataclasses import dataclass
 import ray
 
 from verl.utils.device import (
+    get_device_name,
     get_torch_device,
     get_visible_devices_keyword,
-    is_musa_available,
     is_npu_available,
 )
 
@@ -285,7 +285,7 @@ class Worker(WorkerHelper):
         # MCCL/FlagCX does not work when MUSA_VISIBLE_DEVICES restricts each
         # process to a single device.  Instead, keep all devices visible and
         # use set_device() with the Ray-assigned physical device index.
-        if is_musa_available:
+        if get_device_name() == "musa":
             if cuda_val:
                 musa_device_index = int(cuda_val)
             else:
